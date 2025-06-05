@@ -57,7 +57,7 @@ def compute_distance(seq1, seq2, match=1, mismatch=-1, gap=-1):
     return 1 - identity
 
 
-def build_distance_matrix(sequences, match=1, mismatch=-1, gap=-1):
+def build_distance_matrix(sequences, match=1, mismatch=0, gap=-1):
     n = len(sequences)
     matrix = np.zeros((n, n))
     for i in range(n):
@@ -127,7 +127,6 @@ def generate_pdf(sequences, labels, dist_matrix, linkage_matrix, tree_img_path, 
         pdf.cell(0, 6, row_str, ln=True)
     pdf.ln(5)
 
-    add_section_header(pdf, "Phylogenetic Tree (Dendrogram)")
     if os.path.isfile(tree_img_path):
         with Image.open(tree_img_path) as img:
             width_px, height_px = img.size
@@ -135,11 +134,16 @@ def generate_pdf(sequences, labels, dist_matrix, linkage_matrix, tree_img_path, 
         scale = img_width_mm / width_px
         img_height_mm = height_px * scale
 
-        if pdf.get_y() + img_height_mm > pdf.h - 10:
+        header_height = 14
+        total_height = header_height + img_height_mm
+
+        if pdf.get_y() + total_height > pdf.h - 10:
             pdf.add_page()
 
+        add_section_header(pdf, "Phylogenetic Tree (Dendrogram)")
         pdf.image(tree_img_path, x=10, y=pdf.get_y(), w=img_width_mm)
     else:
+        add_section_header(pdf, "Phylogenetic Tree (Dendrogram)")
         pdf.set_font("Arial", size=10)
         pdf.cell(0, 6, "Error: Dendrogram image not found.", ln=True)
 
