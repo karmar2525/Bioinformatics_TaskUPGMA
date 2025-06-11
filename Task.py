@@ -15,10 +15,34 @@ from PIL import Image
 
 
 def validate_dna(seq):
+    """
+    Validates if a given sequence consists only of DNA bases (A, C, G, T).
+
+    Args:
+        seq (str): The input sequence to validate.
+
+    Returns:
+        bool: True if the sequence contains only DNA bases, False otherwise.
+    """
     return all(base in 'ACGTacgt' for base in seq)
 
 
 def load_sequences(file=None, seqs=None):
+    """
+    Loads DNA sequences and their labels from a FASTA file or a list of strings.
+
+    Args:
+        file (str, optional): Path to a FASTA file.
+        seqs (list, optional): A list of DNA sequence strings.
+
+    Returns:
+        tuple: A tuple containing:
+            - list: A list of DNA sequences (all uppercase).
+            - list: A list of corresponding labels for the sequences.
+
+    Raises:
+        ValueError: If no input (file or seqs) is provided, or if fewer than two valid DNA sequences are found.
+    """
     sequences, labels = [], []
     if file:
         for record in SeqIO.parse(file, "fasta"):
@@ -45,6 +69,21 @@ def load_sequences(file=None, seqs=None):
 
 
 def compute_distance(seq1, seq2, match=1, mismatch=-1, gap=-1):
+    """
+    Computes the normalized distance between two DNA sequences based on global alignment.
+
+    The distance is calculated as 1 - (alignment_score / max_possible_score).
+
+    Args:
+        seq1 (str): The first DNA sequence.
+        seq2 (str): The second DNA sequence.
+        match (int, optional): Score for a match. Defaults to 1.
+        mismatch (int, optional): Penalty for a mismatch. Defaults to -1.
+        gap (int, optional): Penalty for opening and extending a gap. Defaults to -1.
+
+    Returns:
+        float: The normalized distance between the two sequences, ranging from 0 to 1.
+    """
     aligner = PairwiseAligner()
     aligner.mode = 'global'
     aligner.match_score = match
@@ -58,6 +97,21 @@ def compute_distance(seq1, seq2, match=1, mismatch=-1, gap=-1):
 
 
 def build_distance_matrix(sequences, match=1, mismatch=0, gap=-1):
+    """
+    Builds a square distance matrix for a list of DNA sequences.
+
+    Each element (i, j) in the matrix represents the distance between
+    sequence i and sequence j, computed using `compute_distance`.
+
+    Args:
+        sequences (list): A list of DNA sequence strings.
+        match (int, optional): Match score for `compute_distance`. Defaults to 1.
+        mismatch (int, optional): Mismatch penalty for `compute_distance`. Defaults to 0.
+        gap (int, optional): Gap penalty for `compute_distance`. Defaults to -1.
+
+    Returns:
+        numpy.ndarray: A 2D NumPy array representing the symmetric distance matrix.
+    """
     n = len(sequences)
     matrix = np.zeros((n, n))
     for i in range(n):
@@ -68,6 +122,18 @@ def build_distance_matrix(sequences, match=1, mismatch=0, gap=-1):
 
 
 def upgma_clustering(dist_matrix, labels, img_path="upgma_tree.png"):
+    """
+    Performs UPGMA clustering on a distance matrix and generates a dendrogram image.
+
+    Args:
+        dist_matrix (numpy.ndarray): The square distance matrix.
+        labels (list): A list of labels corresponding to the sequences.
+        img_path (str, optional): The file path to save the dendrogram image.
+                                  Defaults to "upgma_tree.png".
+
+    Returns:
+        numpy.ndarray: The linkage matrix produced by the UPGMA clustering.
+    """
     linkage_matrix = linkage(squareform(dist_matrix), method='average')
     plt.figure(figsize=(12, 6))
     dendrogram(linkage_matrix, labels=labels, orientation='top')
@@ -80,6 +146,13 @@ def upgma_clustering(dist_matrix, labels, img_path="upgma_tree.png"):
 
 
 def add_section_header(pdf, title):
+    """
+    Adds a formatted section header to the PDF document.
+
+    Args:
+        pdf (FPDF): The FPDF object to which the header will be added.
+        title (str): The title of the section header.
+    """
     pdf.set_font("Arial", 'B', 14)
     pdf.set_text_color(0, 0, 128)
     pdf.cell(0, 10, title, ln=True)
@@ -91,11 +164,32 @@ def add_section_header(pdf, title):
 
 
 def check_page_space(pdf, line_height=6, margin=10):
+    """
+    Checks if there is enough space on the current PDF page and adds a new page if needed.
+
+    Args:
+        pdf (FPDF): The FPDF object.
+        line_height (int, optional): The height of a single line of text. Defaults to 6.
+        margin (int, optional): The bottom margin of the page. Defaults to 10.
+    """
     if pdf.get_y() > (pdf.h - margin - line_height):
         pdf.add_page()
 
 
 def generate_pdf(sequences, labels, dist_matrix, linkage_matrix, tree_img_path, output_pdf="upgma_report.pdf"):
+    """
+    Generates a comprehensive PDF report containing input sequences, distance matrix,
+    linkage matrix, and the UPGMA phylogenetic tree.
+
+    Args:
+        sequences (list): A list of DNA sequence strings.
+        labels (list): A list of labels for the sequences.
+        dist_matrix (numpy.ndarray): The calculated distance matrix.
+        linkage_matrix (numpy.ndarray): The linkage matrix from UPGMA clustering.
+        tree_img_path (str): The file path to the saved dendrogram image.
+        output_pdf (str, optional): The desired filename for the output PDF report.
+                                    Defaults to "upgma_report.pdf".
+    """
     pdf = FPDF()
     pdf.add_page()
 
@@ -152,15 +246,26 @@ def generate_pdf(sequences, labels, dist_matrix, linkage_matrix, tree_img_path, 
 
 
 def main():
+    """
+    Main function to parse arguments, perform UPGMA clustering, and generate a report.
+
+    This function handles:
+    - Parsing command-line arguments for input (FASTA file, raw sequences, or distance matrix).
+    - Loading sequences or a pre-computed distance matrix.
+    - Computing the distance matrix if sequences are provided.
+    - Performing UPGMA clustering and generating a dendrogram image.
+    - Generating a PDF report summarizing the analysis.
+    """
+
     parser = argparse.ArgumentParser(description="UPGMA Phylogenetic Tree Builder")
     input_group = parser.add_mutually_exclusive_group(required=True)
     input_group.add_argument("--file", help="FASTA file with DNA sequences")
-    input_group.add_argument("--seqs", nargs='+', help="List of sequences")
-    input_group.add_argument("--matrix", help="CSV with distance matrix")
+    input_group.add_argument("--seqs", nargs='+', help="List of DNA sequences")
+    input_group.add_argument("--matrix", help="CSV file with a pre-computed distance matrix")
 
-    parser.add_argument("--match", type=int, default=1, help="Match score")
-    parser.add_argument("--mismatch", type=int, default=-1, help="Mismatch penalty")
-    parser.add_argument("--gap", type=int, default=-1, help="Gap penalty")
+    parser.add_argument("--match", type=int, default=1, help="Match score for sequence alignment (default: 1)")
+    parser.add_argument("--mismatch", type=int, default=-1, help="Mismatch penalty for sequence alignment (default: -1)")
+    parser.add_argument("--gap", type=int, default=-1, help="Gap penalty for sequence alignment (default: -1)")
 
     args = parser.parse_args()
 
@@ -168,6 +273,7 @@ def main():
         df = pd.read_csv(args.matrix, index_col=0)
         dist_matrix = df.values
         labels = list(df.index)
+        # Placeholder for sequences when matrix is loaded directly
         sequences = ["" for _ in labels]
         print("Distance matrix loaded from CSV.")
     else:
